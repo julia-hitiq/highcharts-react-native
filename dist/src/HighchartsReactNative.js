@@ -28,23 +28,29 @@ export default class HighchartsReactNative extends React.PureComponent {
 	}
 
 	getHcAssets = async (useCDN) => {
-		await this.setLayout();
-		await this.getScript('highcharts', null, useCDN);
-		await this.getScript('highcharts-more', null, useCDN);
-		await this.getScript('highcharts-3d', null, useCDN);
-		for (const mod of this.state.modules) {
-			await this.getScript(mod, true, useCDN);
+		try {
+			await this.setLayout();
+			await this.getScript('highcharts', null, useCDN);
+			await this.getScript('highcharts-more', null, useCDN);
+			await this.getScript('highcharts-3d', null, useCDN);
+			for (const mod of this.state.modules) {
+				await this.getScript(mod, true, useCDN);
+			}
+			this.setState({
+				hcModulesReady: true
+			});
+		} catch (error) {
+			console.error('Failed to fetch scripts or layout. ' + error.message);
 		}
-		this.setState({
-			hcModulesReady: true
-		});
 	};
 
 	getScript = async (name, isModule, useCDN) => {
 		let inline;
 
 		if (useCDN) {
-			const response = await fetch(httpProto + cdnPath + (isModule ? 'modules/' : '') + name + '.js');
+			const response = await fetch(httpProto + cdnPath + (isModule ? 'modules/' : '') + name + '.js').catch((error) => {
+				throw error;
+			});
 			inline = await response.text();
 		} else {
 			const script = Asset.fromModule(isModule && name !== 'highcharts-more' && name !== 'highcharts-3d' ? HighchartsModules.modules[name] : HighchartsModules[name]);
@@ -138,26 +144,20 @@ export default class HighchartsReactNative extends React.PureComponent {
                 window.data = \"${this.props.data ? this.props.data : null}\";
                 var modulesList = ${JSON.stringify(this.state.modules)};
                 var readable = ${JSON.stringify(stringifiedScripts)}
-
                 function loadScripts(file, callback, redraw) {
                     var hcScript = document.createElement('script');
                     hcScript.innerHTML = readable[file]
                     document.body.appendChild(hcScript);
-
                     if (callback) {
                         callback.call();
                     }
-
                     if (redraw) {
                         Highcharts.setOptions('${this.serialize(setOptions)}');
                         Highcharts.chart("container", ${this.serialize(this.props.options)});
                     }
                 }
-
                 loadScripts('highcharts', function () {
                     var redraw = modulesList.length > 0 ? false : true;
-                    loadScripts('moment.min', undefined, true);
-				loadScripts('moment-timezone-with-data-2012-2022.min', undefined, true);
                     loadScripts('highcharts-more', function () {
                         if (modulesList.length > 0) {
                             for (var i = 0; i < modulesList.length; i++) {
@@ -195,7 +195,7 @@ export default class HighchartsReactNative extends React.PureComponent {
 						mixedContentMode='always'
 						allowFileAccessFromFileURLs={true}
 						startInLoadingState={this.props.loader}
-						style={this.props.webviewStyles}
+						style={[ this.props.webviewStyles, { backgroundColor: 'transparent' } ]}
 					/>
 				</View>
 			);
